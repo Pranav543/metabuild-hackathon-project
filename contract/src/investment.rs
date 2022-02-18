@@ -1,6 +1,7 @@
 use crate::*;
 
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
+#[serde(crate = "near_sdk::serde")]
 pub struct Investment {
     // how much was invested
     pub amount: Balance,
@@ -20,13 +21,13 @@ impl Investment {
 
     /// calculates what this would return if it was mature and the data was recent enough
     /// just for displaying in UI.
-    pub fn would_reward(&self, loc: &Location) -> Uint128 {
+    pub fn would_reward(&self, loc: &Location) -> Balance {
         if let Some(measure) = &loc.cur_index {
             // measurement after maturity, within window
             // calculate ratio, positive, if measurement below baseline
             // no code to divide Decimals, so we do this
             let ratio = self.baseline_index / measure.value;
-            self.amount * ratio
+            self.amount * ratio as Balance
         } else {
             0
         }
@@ -34,7 +35,7 @@ impl Investment {
 
     /// calculates the reward. if it is not mature, or there is insufficient data
     /// to provide a result, then it will return None
-    pub fn reward(&self, loc: &Location, measurement_window: u64) -> Option<Uint128> {
+    pub fn reward(&self, loc: &Location, measurement_window: u64) -> Option<Balance> {
         if !self.is_mature() {
             return None;
         }
@@ -46,7 +47,7 @@ impl Investment {
                     // calculate ratio, positive, if measurement below baseline
                     // no code to divide Decimals, so we do this
                     let ratio = self.baseline_index / measure.value;
-                    let reward = self.amount * ratio;
+                    let reward = self.amount * ratio as Balance;
                     Some(reward)
                 }
                 Some(_) => {

@@ -1,8 +1,10 @@
 use crate::*;
+// use near_sdk::serde::{Deserialize, Serialize};
 
 #[derive(
-    Serialize, Deserialize, BorshDeserialize, BorshSerialize, Default, Clone, Copy, PartialEq,
+    BorshDeserialize, BorshSerialize, Default, Serialize, Deserialize, Clone, Copy, PartialEq,
 )]
+#[serde(crate = "near_sdk::serde")]
 pub struct Location {
     pub cur_index: Option<Measurement>,
     // amount of money invested here
@@ -16,6 +18,7 @@ pub struct Location {
 #[derive(
     Serialize, Deserialize, BorshDeserialize, BorshSerialize, Default, Clone, Copy, PartialEq,
 )]
+#[serde(crate = "near_sdk::serde")]
 pub struct Measurement {
     pub value: f64,
     // unix time (UTC) in seconds
