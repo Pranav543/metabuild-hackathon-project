@@ -5,12 +5,15 @@
 /.pnp
 .pnp.js
 /out
+/.cache
 
 #keys
 /neardev
 
 # testing
 /coverage
+contract/target/
+dist/
 
 # production
 /build
