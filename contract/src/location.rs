@@ -1,6 +1,8 @@
 use crate::*;
 
-#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize, Default, Clone, Copy)]
+#[derive(
+    Serialize, Deserialize, BorshDeserialize, BorshSerialize, Default, Clone, Copy, PartialEq,
+)]
 pub struct Location {
     pub cur_index: Option<Measurement>,
     // amount of money invested here
@@ -11,7 +13,9 @@ pub struct Location {
     pub current_investments: u64,
 }
 
-#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize, Default, Clone, Copy)]
+#[derive(
+    Serialize, Deserialize, BorshDeserialize, BorshSerialize, Default, Clone, Copy, PartialEq,
+)]
 pub struct Measurement {
     pub value: f64,
     // unix time (UTC) in seconds
