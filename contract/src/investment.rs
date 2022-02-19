@@ -16,13 +16,13 @@ pub struct Investment {
 impl Investment {
     /// whether or not this investment has reached maturity date and can be withdrawn
     pub fn is_mature(&self) -> bool {
-        env::block_timestamp() >= self.maturity_time
+        (env::block_timestamp() / 1000_000_000) >= self.maturity_time
     }
 
     /// calculates what this would return if it was mature and the data was recent enough
     /// just for displaying in UI.
     pub fn would_reward(&self, loc: &Location) -> Balance {
-        if let Some(measure) = &loc.cur_index {
+        if let measure = &loc.cur_index {
             // measurement after maturity, within window
             // calculate ratio, positive, if measurement below baseline
             // no code to divide Decimals, so we do this
@@ -40,7 +40,7 @@ impl Investment {
             return None;
         }
         // TODO: we need to store historical data... you cannot just wait it out
-        if let Some(measure) = &loc.cur_index {
+        if let measure = &loc.cur_index {
             match measure.time.checked_sub(self.maturity_time) {
                 Some(val) if val <= measurement_window * 86400 => {
                     // measurement after maturity, within window

@@ -103,7 +103,7 @@ impl Contract {
         amount: Balance,
         hex: String,
     ) -> Result<Balance, &str> {
-        let invested = env::block_timestamp();
+        let invested = env::block_timestamp() / 1000_000_000;
         let maturity_date = invested + self.maturity_days * 86400;
 
         // update investment info in Location
@@ -111,14 +111,17 @@ impl Contract {
             //if the location hasn't initialized we create new location
             Location::default()
         });
-        location.add_investment(amount);
+        location.add_investment(amount, invested);
         self.locations.insert(&hex, &location);
+        log!(
+            "block_timestamp is = {:?}",
+            env::block_timestamp() / 1000_000_000
+        );
 
-        let last_index = location
-            .cur_index
-            .ok_or("Cannot invest in a location without oracle data")?;
+        let last_index = location.cur_index;
         assert!(
-            last_index.time > env::block_timestamp() - self.measurement_window * 86400,
+            last_index.time
+                > (env::block_timestamp() / 1000_000_000) - (self.measurement_window * 86400),
             "Data to old!"
         );
 
