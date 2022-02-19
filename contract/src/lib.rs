@@ -4,15 +4,13 @@ mod location;
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet, Vector};
-use near_sdk::json_types::{Base64VecU8, U128};
+use near_sdk::collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet};
+use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    env, near_bindgen, setup_alloc, AccountId, Balance, CryptoHash, PanicOnDefault, Promise,
+    env, log, near_bindgen, setup_alloc, AccountId, Balance, CryptoHash, PanicOnDefault, Promise,
     PromiseOrValue,
 };
-use std::collections::HashMap;
-use std::convert::TryInto;
 use std::str::FromStr;
 
 // use crate::r3::validate_r3;
@@ -25,10 +23,38 @@ pub(crate) fn assert_initialized() {
     assert!(!env::state_exists(), "Already initialized");
 }
 
+pub(crate) fn validate_r3(input: String) {
+    let lower = input.to_lowercase();
+    assert!(lower.len() == 15, "Hex has invalid length!");
+    assert!(is_hex(&lower), "Not a valid Hex value!");
+}
+
+fn is_hex(input: &str) -> bool {
+    input.chars().all(|b| matches!(b, '0'..='9' | 'a'..='f'))
+}
+
 #[derive(BorshSerialize)]
 pub enum StorageKey {
     Locations,
     Investments,
+}
+
+#[derive(Debug, PartialEq)]
+enum ContractInteraction {
+    Invest,
+    Withdraw,
+}
+
+impl FromStr for ContractInteraction {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<ContractInteraction, Self::Err> {
+        match input {
+            "invest" => Ok(ContractInteraction::Invest),
+            "withdraw" => Ok(ContractInteraction::Withdraw),
+            _ => Err(()),
+        }
+    }
 }
 
 #[near_bindgen]
@@ -47,7 +73,7 @@ pub struct Contract {
 
     pub locations: LookupMap<String, Location>,
 
-    pub investments: LookupMap<(AccountId, String), Vector<Investment>>,
+    pub investments: LookupMap<(AccountId, String), Vec<Investment>>,
 }
 
 #[near_bindgen]
@@ -70,5 +96,91 @@ impl Contract {
         };
 
         this
+    }
+    pub fn invest(
+        &mut self,
+        sender: AccountId,
+        amount: Balance,
+        hex: String,
+    ) -> Result<Balance, &str> {
+        let invested = env::block_timestamp();
+        let maturity_date = invested + self.maturity_days * 86400;
+
+        // update investment info in Location
+        let mut location = self.locations.get(&hex).unwrap_or_else(|| {
+            //if the location hasn't initialized we create new location
+            Location::default()
+        });
+        location.add_investment(amount);
+        self.locations.insert(&hex, &location);
+
+        let last_index = location
+            .cur_index
+            .ok_or("Cannot invest in a location without oracle data")?;
+        assert!(
+            last_index.time > env::block_timestamp() - self.measurement_window * 86400,
+            "Data to old!"
+        );
+
+        let investment = Investment {
+            amount: amount,
+            baseline_index: last_index.value,
+            invested_time: invested,
+            maturity_time: maturity_date,
+        };
+        let mut investments = self
+            .investments
+            .get(&(sender.clone(), hex.clone()))
+            .unwrap_or_else(|| Vec::new());
+        investments.push(investment);
+        self.investments
+            .insert(&(sender.clone(), hex.clone()), &investments);
+        Ok(0)
+    }
+}
+
+#[near_bindgen]
+impl FungibleTokenReceiver for Contract {
+    /// If given `msg: "take-my-money", immediately returns U128::From(0)
+    /// Otherwise, makes a cross-contract call to own `value_please` function, passing `msg`
+    /// value_please will attempt to parse `msg` as an integer and return a U128 version of it
+    fn ft_on_transfer(
+        &mut self,
+        sender_id: ValidAccountId,
+        amount: U128,
+        msg: String,
+    ) -> PromiseOrValue<U128> {
+        // Verifying that we were called by fungible token contract that we expect.
+        assert!(
+            env::predecessor_account_id() == self.fungible_token_account_id,
+            "Only supports the one fungible token contract"
+        );
+        log!(
+            "in {} tokens from @{} ft_on_transfer, msg = {}",
+            amount.0,
+            sender_id.as_ref(),
+            msg
+        );
+        let m: Vec<&str> = msg.split("::").collect();
+        let action: String = m[0].to_string();
+        let hex: String = m[1].to_string();
+        validate_r3(hex.clone());
+
+        match action.parse().unwrap() {
+            ContractInteraction::Invest => {
+                let result = self.invest(sender_id.into(), amount.into(), hex);
+                match result {
+                    Ok(s) => PromiseOrValue::Value(s.into()),
+                    Err(e) => {
+                        log!(e);
+                        PromiseOrValue::Value(amount)
+                    }
+                }
+            }
+            _ => {
+                log!("Invalid instruction for invest call");
+                PromiseOrValue::Value(amount)
+            }
+        }
     }
 }
