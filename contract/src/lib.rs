@@ -1,5 +1,6 @@
 mod investment;
 mod location;
+mod response;
 
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
@@ -16,6 +17,7 @@ use std::str::FromStr;
 // use crate::r3::validate_r3;
 use crate::investment::*;
 use crate::location::*;
+use crate::response::*;
 
 // setup_alloc!();
 
@@ -23,10 +25,11 @@ pub(crate) fn assert_initialized() {
     assert!(!env::state_exists(), "Already initialized");
 }
 
-pub(crate) fn validate_r3(input: String) {
+pub(crate) fn validate_r3(input: String) -> String {
     let lower = input.to_lowercase();
     assert!(lower.len() == 15, "Hex has invalid length!");
     assert!(is_hex(&lower), "Not a valid Hex value!");
+    lower
 }
 
 fn is_hex(input: &str) -> bool {
@@ -140,6 +143,27 @@ impl Contract {
             .insert(&(sender.clone(), hex.clone()), &investments);
         Ok(0)
     }
+
+    pub fn list_investments(
+        &self,
+        investor: AccountId,
+        hex: String,
+    ) -> Result<ListInvestmentsResponse, String> {
+        let hex = validate_r3(hex.clone());
+        let investments = {
+            let loc = self.locations.get(&hex).unwrap();
+            self.investments
+                .get(&(investor.clone(), hex.clone()))
+                .unwrap()
+                .into_iter()
+                .map(|inv| {
+                    InvestmentResponse::new(inv, &hex, self.measurement_window.clone(), &loc)
+                })
+                .collect()
+        };
+
+        Ok(ListInvestmentsResponse { investments })
+    }
 }
 
 #[near_bindgen]
@@ -166,8 +190,7 @@ impl FungibleTokenReceiver for Contract {
         );
         let m: Vec<&str> = msg.split("::").collect();
         let action: String = m[0].to_string();
-        let hex: String = m[1].to_string();
-        validate_r3(hex.clone());
+        let hex: String = validate_r3(m[1].to_string());
 
         match action.parse().unwrap() {
             ContractInteraction::Invest => {
