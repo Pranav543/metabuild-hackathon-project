@@ -40,6 +40,7 @@ fn is_hex(input: &str) -> bool {
 pub enum StorageKey {
     Locations,
     Investments,
+    AccountHexMap,
 }
 
 #[derive(Debug, PartialEq)]
@@ -77,6 +78,8 @@ pub struct Contract {
     pub locations: LookupMap<String, Location>,
 
     pub investments: LookupMap<(AccountId, String), Vec<Investment>>,
+
+    pub account_hex_map: LookupMap<AccountId, Vec<String>>,
 }
 
 #[near_bindgen]
@@ -96,6 +99,7 @@ impl Contract {
             measurement_window,
             locations: LookupMap::new(StorageKey::Locations.try_to_vec().unwrap()),
             investments: LookupMap::new(StorageKey::Investments.try_to_vec().unwrap()),
+            account_hex_map: LookupMap::new(StorageKey::AccountHexMap.try_to_vec().unwrap()),
         };
 
         this
@@ -105,6 +109,7 @@ impl Contract {
         sender: AccountId,
         amount: Balance,
         hex: String,
+        hex_index: f64,
     ) -> Result<Balance, &str> {
         let invested = env::block_timestamp() / 1000_000_000;
         let maturity_date = invested + self.maturity_days * 86400;
@@ -114,7 +119,7 @@ impl Contract {
             //if the location hasn't initialized we create new location
             Location::default()
         });
-        location.add_investment(amount, invested);
+        location.add_investment(amount, invested, hex_index);
         self.locations.insert(&hex, &location);
         log!(
             "block_timestamp is = {:?}",
@@ -141,16 +146,27 @@ impl Contract {
         investments.push(investment);
         self.investments
             .insert(&(sender.clone(), hex.clone()), &investments);
+        let mut hex_arr = self.account_hex_map.get(&sender).unwrap_or_else(|| {
+            //if the location hasn't initialized we create new location
+            vec![]
+        });
+        hex_arr.push(hex.clone());
+        self.account_hex_map.insert(&sender, &hex_arr);
         Ok(0)
     }
 
-    pub fn list_investments(
-        &self,
-        investor: AccountId,
-        hex: String,
-    ) -> Result<ListInvestmentsResponse, String> {
+    pub fn list_investments(&self, investor: AccountId, hex: String) -> ListInvestmentsResponse {
         let hex = validate_r3(hex.clone());
-        let investments = {
+        let loc = self.locations.get(&hex);
+        if let Some(loc) = loc {
+            loc
+        } else {
+            return ListInvestmentsResponse {
+                investments: vec![],
+            };
+        };
+        let invs = self.investments.get(&(investor.clone(), hex.clone()));
+        let investments = if let Some(invs) = invs {
             let loc = self.locations.get(&hex).unwrap();
             self.investments
                 .get(&(investor.clone(), hex.clone()))
@@ -160,9 +176,25 @@ impl Contract {
                     InvestmentResponse::new(inv, &hex, self.measurement_window.clone(), &loc)
                 })
                 .collect()
+        } else {
+            return ListInvestmentsResponse {
+                investments: vec![],
+            };
         };
 
-        Ok(ListInvestmentsResponse { investments })
+        ListInvestmentsResponse { investments }
+    }
+
+    pub fn get_investor_investments(&self, investor: AccountId) -> Vec<ListInvestmentsResponse> {
+        let mut all_investments = vec![];
+        let hex_arr = self.account_hex_map.get(&investor);
+        if let Some(hex_arr) = hex_arr {
+            for hex in hex_arr {
+                let investment = self.list_investments(investor.clone(), hex.clone());
+                all_investments.push(investment);
+            }
+        }
+        all_investments
     }
 }
 
@@ -191,10 +223,11 @@ impl FungibleTokenReceiver for Contract {
         let m: Vec<&str> = msg.split("::").collect();
         let action: String = m[0].to_string();
         let hex: String = validate_r3(m[1].to_string());
+        let hex_index: f64 = m[2].parse().unwrap();
 
         match action.parse().unwrap() {
             ContractInteraction::Invest => {
-                let result = self.invest(sender_id.into(), amount.into(), hex);
+                let result = self.invest(sender_id.into(), amount.into(), hex, hex_index);
                 match result {
                     Ok(s) => PromiseOrValue::Value(s.into()),
                     Err(e) => {
