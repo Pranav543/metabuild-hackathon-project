@@ -72,7 +72,7 @@ const StepOne = ({ changeStep }) => {
           </Grid>
           <Grid item xs={12}>
             <Typography variant="body">
-              Hi, seems that you're using Element Finance for the first time!
+              Hi, seems that you're using Element Project for the first time!
               Follow some simple steps to get started!
             </Typography>
             <Typography variant="body2" sx={{ display: "block", mt: 2 }}>

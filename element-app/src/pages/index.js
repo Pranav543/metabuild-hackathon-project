@@ -16,7 +16,7 @@ const IndexPage = () => {
           <Grid item xs={6}>
             <StaticImage height={80} src="../images/logo.svg" alt="Logo" />
             <Typography variant="h6">
-              <strong>ELEMENT FINANCE</strong>
+              <strong>ELEMENT PROJECT</strong>
             </Typography>
           </Grid>
           <Grid item alignSelf="center" xs={6}>

@@ -111,7 +111,7 @@ const Footer = () => {
         </Grid>
         <Grid item sx={{ pb: 3 }} display="flex" xs={6}>
           <Typography variant="body1">
-            © Element Finance {new Date().getFullYear()}
+            © Element Project {new Date().getFullYear()}
           </Typography>
         </Grid>
         <Grid
