@@ -14,8 +14,7 @@ If pollution increases, they lose ELEMENT (do not get all their initial investme
 For the prototype, we have a quite short investment duration (7 days),
 but any real system should configure this for several months and use a time-averaged value to encourage long-term improvements
 
-This document provides a high-level overview of the project. You can also
-[read more about the tech stack](./TECH_STACK.md), or get information on [how to run this code](./DEVELOPMENT.md)
+This document provides a high-level overview of the project. You can also get information on [how to run this code](./DEVELOPMENT.md)
 
 ## Data Sources
 
@@ -62,5 +61,5 @@ you to withdraw any investments that have reached maturity, calculating your win
 
 ## Contracts
 
-We use [Near rust contracts](https://github.com/Pranav543/metabuild-hackathon-project/tree/main/contracts) to handle
+We use [rust contracts](https://github.com/Pranav543/metabuild-hackathon-project/tree/main/contracts) deployed on NEAR to handle
 the blockchain side.

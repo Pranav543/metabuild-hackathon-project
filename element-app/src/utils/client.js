@@ -54,4 +54,13 @@ export const investElement = async (
 };
 
 // Withdraw all
-export const withdrawElement = async (client, address) => {};
+export const withdrawElement = async (address) => {
+  const result = await window.contract.withdraw(
+    {
+      investor: address,
+    },
+    300000000000000, // attached GAS (optional)
+    new BN(utils.format.parseNearAmount("0.000000000000000000000001"))
+  );
+  return result;
+};

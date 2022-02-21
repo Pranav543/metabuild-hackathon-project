@@ -10,7 +10,12 @@ import {
 import React, { useContext, useState } from "react";
 import { GlobalContext } from "../context/store";
 import { DataGrid } from "@mui/x-data-grid";
-import { ArrowCircleDown, ArrowCircleUp, Check, Close } from "@mui/icons-material";
+import {
+  ArrowCircleDown,
+  ArrowCircleUp,
+  Check,
+  Close,
+} from "@mui/icons-material";
 import { withdrawElement } from "../utils/client";
 
 const style = {
@@ -116,12 +121,15 @@ const Withdraw = ({ open, close, investments, updateRows }) => {
   const [state, dispatch] = useContext(GlobalContext);
   const [loadingWithdraw, setLoadingWithdraw] = useState(false);
 
-  const invArr = investments.map((obj, i) => ({ ...obj, id: `investment-${i}` }));
+  const invArr = investments.map((obj, i) => ({
+    ...obj,
+    id: `investment-${i}`,
+  }));
   const handleWithdraw = async () => {
     // Withdraw
     setLoadingWithdraw(true);
     try {
-      const res = await withdrawElement(state.signingClient, state.address);
+      const res = await withdrawElement(state.address);
       dispatch({
         type: "SET_MESSAGE",
         payload: {
